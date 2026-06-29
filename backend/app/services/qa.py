@@ -11,11 +11,11 @@ from app.clients.openai import OpenAIClient
 from app.config import Settings, get_settings
 from app.models import AnswerResult, RetrievedChunk
 from app.repositories.supabase_repository import SupabaseRepository
-
-
-SYSTEM_PROMPT = (
-    "You are a legal document assistant. Answer based on provided context. "
-    "Cite [Page X] inline. For follow-up questions, use the conversation history."
+from app.services.prompt_security import (
+    LockedAnswerPlan,
+    build_guarded_chat_messages,
+    format_untrusted_context,
+    get_locked_answer_plan,
 )
 
 
@@ -48,6 +48,7 @@ class QuestionAnsweringService:
         user_id: str,
     ) -> AnswerResult:
         started = time.perf_counter()
+        locked_plan = get_locked_answer_plan()
         session = await self.supabase_repository.get_owned_session(session_id, user_id)
         document = await self.supabase_repository.get_owned_document(session["document_id"], user_id)
         prior_messages = await self.supabase_repository.list_messages(session_id)
@@ -63,8 +64,9 @@ class QuestionAnsweringService:
 
         answer = await self.openai_client.generate_answer(
             build_chat_messages(
+                locked_plan=locked_plan,
                 prior_messages=prior_messages,
-                context=format_context(retrieved_chunks),
+                retrieved_chunks=retrieved_chunks,
                 question=question,
             )
         )
@@ -134,32 +136,22 @@ class QuestionAnsweringService:
 
 
 def format_context(chunks: list[RetrievedChunk]) -> str:
-    blocks = [
-        f"[Page {chunk.page_number}, Chunk {chunk.chunk_index}]\n{chunk.text}"
-        for chunk in chunks
-    ]
-    return "\n\n---\n\n".join(blocks)
+    return format_untrusted_context(chunks)
 
 
 def build_chat_messages(
     *,
+    locked_plan: LockedAnswerPlan | None = None,
     prior_messages: list[dict[str, Any]],
-    context: str,
+    retrieved_chunks: list[RetrievedChunk] | None = None,
     question: str,
 ) -> list[dict[str, str]]:
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    messages.extend(
-        {"role": message["role"], "content": message["content"]}
-        for message in prior_messages
-        if message.get("role") in {"user", "assistant"} and message.get("content")
+    return build_guarded_chat_messages(
+        locked_plan=locked_plan or get_locked_answer_plan(),
+        prior_messages=prior_messages,
+        retrieved_chunks=retrieved_chunks or [],
+        question=question,
     )
-    messages.append(
-        {
-            "role": "user",
-            "content": f"Retrieved document context:\n{context}\n\nQuestion: {question}",
-        }
-    )
-    return messages
 
 
 def build_sources(chunks: list[RetrievedChunk]) -> list[dict[str, Any]]:

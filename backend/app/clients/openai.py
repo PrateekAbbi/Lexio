@@ -50,11 +50,7 @@ class OpenAIClient:
             response = await client.post(
                 self.settings.openai_chat_url,
                 headers=self._headers(),
-                json={
-                    "model": self.settings.require_answer_model(),
-                    "messages": messages,
-                    "temperature": 0.2,
-                },
+                json=self._chat_payload(messages),
                 timeout=60,
             )
 
@@ -65,6 +61,19 @@ class OpenAIClient:
             return response.json()["choices"][0]["message"]["content"].strip()
         except (KeyError, IndexError, TypeError) as exc:
             raise ExternalServiceError("OpenAI chat response was missing answer content.") from exc
+
+    def _chat_payload(self, messages: list[dict[str, str]]) -> dict[str, object]:
+        """Build a chat payload without model-callable tools.
+
+        This app performs retrieval and persistence itself. The model receives
+        text-only inputs and cannot call tools, functions, or database writes.
+        """
+
+        return {
+            "model": self.settings.require_answer_model(),
+            "messages": messages,
+            "temperature": 0.2,
+        }
 
     async def _embed_batch(
         self,
