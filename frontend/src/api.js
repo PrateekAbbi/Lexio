@@ -1,5 +1,13 @@
 import { supabase } from "./supabaseClient";
 
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+
+function normalizeApiBaseUrl(value) {
+  const fallback = "/api";
+  if (!value) return fallback;
+  return value.replace(/\/+$/, "");
+}
+
 export class AuthSessionExpiredError extends Error {
   constructor() {
     super("Supabase session expired.");
@@ -35,7 +43,7 @@ async function requestWithToken(path, options, token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  return fetch(`/api${path}`, {
+  return fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers,
   });

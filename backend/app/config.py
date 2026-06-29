@@ -63,6 +63,10 @@ class Settings:
             supabase_service_role_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
             embedding_model=os.getenv("OPENAI_EMBEDDING_MODEL"),
             answer_model=os.getenv("OPENAI_ANSWER_MODEL"),
+            cors_origins=_parse_csv_tuple(
+                os.getenv("CORS_ORIGINS"),
+                default=("http://localhost:5173", "http://127.0.0.1:5173"),
+            ),
             chroma_mode=os.getenv("CHROMA_MODE", "local").strip().lower(),
             chroma_path=_parse_path(os.getenv("CHROMA_PATH"), default=BASE_DIR / "chroma_store"),
             chroma_tenant=os.getenv("CHROMA_TENANT"),
@@ -119,3 +123,9 @@ def _parse_path(value: str | None, *, default: Path) -> Path:
     if path.is_absolute():
         return path
     return BASE_DIR / path
+
+
+def _parse_csv_tuple(value: str | None, *, default: tuple[str, ...]) -> tuple[str, ...]:
+    if not value:
+        return default
+    return tuple(item.strip() for item in value.split(",") if item.strip())
