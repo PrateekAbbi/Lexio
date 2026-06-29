@@ -40,4 +40,5 @@ frontend/package-lock.json
 *.swp
 *.swo
 
-sample-docs/
+sample-docs/generate_synthetic_legal_docs.py
+sample-docs/generate_synthetic_nda.py
