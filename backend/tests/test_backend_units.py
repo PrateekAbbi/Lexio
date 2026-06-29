@@ -2,11 +2,14 @@
 
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+from app.clients.chroma import get_chroma_client
 from app.clients.openai import OpenAIClient
 from app.config import Settings
+from app.exceptions import ConfigurationError
 from app.main import app
 from app.models import RetrievedChunk
 from app.services.chunking import build_chunks_for_page, estimate_tokens, split_sentences
@@ -21,6 +24,41 @@ class HealthRouteTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+
+class ChromaClientConfigTests(unittest.TestCase):
+    def tearDown(self) -> None:
+        get_chroma_client.cache_clear()
+
+    def test_cloud_mode_uses_chroma_cloud_client(self) -> None:
+        settings = Settings(
+            chroma_mode="cloud",
+            chroma_tenant="tenant-test",
+            chroma_database="database-test",
+            chroma_api_key="key-test",
+        )
+
+        with (
+            patch("app.clients.chroma.get_settings", return_value=settings),
+            patch("app.clients.chroma.chromadb.CloudClient", return_value=object()) as cloud_client,
+        ):
+            get_chroma_client()
+
+        cloud_client.assert_called_once_with(
+            tenant="tenant-test",
+            database="database-test",
+            api_key="key-test",
+            cloud_host="api.trychroma.com",
+            cloud_port=443,
+            enable_ssl=True,
+        )
+
+    def test_invalid_chroma_mode_fails_fast(self) -> None:
+        settings = Settings(chroma_mode="remote")
+
+        with patch("app.clients.chroma.get_settings", return_value=settings):
+            with self.assertRaises(ConfigurationError):
+                get_chroma_client()
 
 
 class ChunkingTests(unittest.TestCase):

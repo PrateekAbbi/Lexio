@@ -42,3 +42,4 @@ frontend/package-lock.json
 
 sample-docs/generate_synthetic_legal_docs.py
 sample-docs/generate_synthetic_nda.py
+sample-docs/generate_long_synthetic_contract.py

@@ -46,7 +46,14 @@ class Settings:
     chunk_token_target: int = 500
     chunk_token_overlap: int = 50
     retrieval_result_count: int = 5
+    chroma_mode: str = "local"
     chroma_path: Path = BASE_DIR / "chroma_store"
+    chroma_tenant: str | None = None
+    chroma_database: str | None = None
+    chroma_api_key: str | None = None
+    chroma_cloud_host: str = "api.trychroma.com"
+    chroma_cloud_port: int = 443
+    chroma_cloud_ssl: bool = True
 
     @classmethod
     def from_environment(cls) -> "Settings":
@@ -56,6 +63,14 @@ class Settings:
             supabase_service_role_key=os.getenv("SUPABASE_SERVICE_ROLE_KEY"),
             embedding_model=os.getenv("OPENAI_EMBEDDING_MODEL"),
             answer_model=os.getenv("OPENAI_ANSWER_MODEL"),
+            chroma_mode=os.getenv("CHROMA_MODE", "local").strip().lower(),
+            chroma_path=_parse_path(os.getenv("CHROMA_PATH"), default=BASE_DIR / "chroma_store"),
+            chroma_tenant=os.getenv("CHROMA_TENANT"),
+            chroma_database=os.getenv("CHROMA_DATABASE"),
+            chroma_api_key=os.getenv("CHROMA_API_KEY"),
+            chroma_cloud_host=os.getenv("CHROMA_CLOUD_HOST", "api.trychroma.com"),
+            chroma_cloud_port=int(os.getenv("CHROMA_CLOUD_PORT", "443")),
+            chroma_cloud_ssl=_parse_bool(os.getenv("CHROMA_CLOUD_SSL"), default=True),
         )
 
     def require_openai_api_key(self) -> str:
@@ -78,7 +93,29 @@ class Settings:
             raise ConfigurationError("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required.")
         return self.supabase_url, self.supabase_service_role_key
 
+    def require_chroma_cloud_credentials(self) -> tuple[str, str, str]:
+        if not self.chroma_tenant or not self.chroma_database or not self.chroma_api_key:
+            raise ConfigurationError(
+                "CHROMA_TENANT, CHROMA_DATABASE, and CHROMA_API_KEY are required when CHROMA_MODE=cloud."
+            )
+        return self.chroma_tenant, self.chroma_database, self.chroma_api_key
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings.from_environment()
+
+
+def _parse_bool(value: str | None, *, default: bool) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _parse_path(value: str | None, *, default: Path) -> Path:
+    if not value:
+        return default
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return BASE_DIR / path
