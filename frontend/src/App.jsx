@@ -1,4 +1,5 @@
 import React from "react";
+import { Analytics } from "@vercel/analytics/react";
 import { Navigate, Route, BrowserRouter as Router, Routes, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthProvider.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -37,6 +38,7 @@ export default function App() {
   return (
     <Router>
       <AuthProvider>
+        <Analytics />
         <Routes>
           <Route path="/login" element={<LoginRoute />} />
           <Route
