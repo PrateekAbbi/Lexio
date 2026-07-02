@@ -166,8 +166,15 @@ class DocumentIngestionService:
 
 
 def _validate_pdf_upload(filename: str | None, pdf_bytes: bytes) -> str:
-    if not filename or Path(filename).suffix.lower() != ".pdf":
+    normalized_filename = _normalize_upload_filename(filename)
+    if not normalized_filename or Path(normalized_filename).suffix.lower() != ".pdf":
         raise UnsupportedDocumentError("Only PDF files are supported.")
     if not pdf_bytes:
         raise UnsupportedDocumentError("Uploaded file is empty.")
-    return filename
+    return normalized_filename
+
+
+def _normalize_upload_filename(filename: str | None) -> str:
+    if not filename:
+        return ""
+    return Path(filename.replace("\\", "/")).name.strip()

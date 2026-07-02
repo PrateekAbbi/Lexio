@@ -23,6 +23,7 @@ htmlcov/
 
 # Backend local data
 backend/chroma_store/
+backend/*.log
 
 # Node / Vite
 frontend/node_modules/

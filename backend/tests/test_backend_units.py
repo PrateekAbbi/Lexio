@@ -14,6 +14,7 @@ from app.main import app
 from app.models import RetrievedChunk
 from app.services.chunking import build_chunks_for_page, estimate_tokens, split_sentences
 from app.services.guardrail import is_identity_seeking_query
+from app.services.ingestion import _validate_pdf_upload
 from app.services.pdf import extract_pdf_text
 from app.services.pii import (
     assign_roles_to_organizations,
@@ -94,6 +95,10 @@ class PdfExtractionTests(unittest.TestCase):
         self.assertEqual(page_count, len(pages))
         self.assertGreater(page_count, 0)
         self.assertTrue(pages[0].text)
+
+    def test_pdf_upload_validation_normalizes_client_paths(self) -> None:
+        self.assertEqual(_validate_pdf_upload("../contracts/lease.pdf", b"%PDF"), "lease.pdf")
+        self.assertEqual(_validate_pdf_upload(r"C:\Users\person\nda.PDF", b"%PDF"), "nda.PDF")
 
 
 class LocalPiiHandlingTests(unittest.TestCase):

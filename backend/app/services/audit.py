@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from pathlib import Path
 
 
+AUDIT_LOG_PATH = Path(__file__).resolve().parents[2] / "pii_audit.log"
 audit_logger = logging.getLogger("pii_audit")
 if not audit_logger.handlers:
-    handler = logging.FileHandler("pii_audit.log", delay=True)
+    handler = logging.FileHandler(AUDIT_LOG_PATH, delay=True)
     audit_logger.addHandler(handler)
 audit_logger.setLevel(logging.INFO)
 audit_logger.propagate = False
