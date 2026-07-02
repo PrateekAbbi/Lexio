@@ -1,6 +1,6 @@
 # Legal Document Intake Pipeline
 
-Lexio is a full-stack legal document review demo. Users sign in with Google through Supabase Auth, upload contract PDFs, and ask multi-turn questions that are answered with retrieved document citations.
+Lexio is a full-stack legal document review application. Users sign in with Google through Supabase Auth, upload contract PDFs, and ask multi-turn questions that are answered with retrieved document citations.
 
 The project is intended for local development and portfolio/demo deployment. It is not a substitute for legal advice.
 
