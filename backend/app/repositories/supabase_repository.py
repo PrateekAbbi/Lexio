@@ -35,6 +35,9 @@ class SupabaseRepository:
         page_count: int,
         chunk_count: int,
         collection_name: str,
+        doc_type: str,
+        roles_detected: list[str],
+        total_redactions: int,
     ) -> dict[str, Any]:
         response = await self._execute(
             lambda: self.client.table("documents").insert(
@@ -45,6 +48,9 @@ class SupabaseRepository:
                     "page_count": page_count,
                     "chunk_count": chunk_count,
                     "chroma_collection_id": collection_name,
+                    "doc_type": doc_type,
+                    "roles_detected": roles_detected,
+                    "total_redactions": total_redactions,
                 }
             ),
             "document metadata insert",
@@ -177,4 +183,3 @@ def _supabase_error_message(exc: Exception) -> str:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
-

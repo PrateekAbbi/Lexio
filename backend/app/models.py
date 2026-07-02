@@ -31,6 +31,9 @@ class IndexedDocument:
     collection_name: str
     page_count: int
     chunk_count: int
+    doc_type: str
+    roles_detected: list[str]
+    total_redactions: int
     embed_time_ms: int
     ingest_time_ms: int
 
@@ -55,4 +58,3 @@ class AnswerResult:
     answer: str
     sources: list[dict[str, Any]]
     latency_ms: int
-

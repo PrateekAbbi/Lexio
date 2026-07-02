@@ -35,6 +35,9 @@ async def upload_pdf(
         "total_chunks": document.chunk_count,
         "page_count": document.page_count,
         "pages": document.page_count,
+        "doc_type": document.doc_type,
+        "roles_detected": document.roles_detected,
+        "total_redactions": document.total_redactions,
         "embed_time_ms": document.embed_time_ms,
         "ingest_time_ms": document.ingest_time_ms,
     }

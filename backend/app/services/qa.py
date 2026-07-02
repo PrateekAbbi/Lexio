@@ -11,11 +11,22 @@ from app.clients.openai import OpenAIClient
 from app.config import Settings, get_settings
 from app.models import AnswerResult, RetrievedChunk
 from app.repositories.supabase_repository import SupabaseRepository
+from app.services.audit import log_chunk_pii_detected_at_query_time, log_query_blocked
+from app.services.guardrail import is_identity_seeking_query
+from app.services.pii import scan_all_pii, validate_no_pii_remains
 from app.services.prompt_security import (
     LockedAnswerPlan,
     build_guarded_chat_messages,
     format_untrusted_context,
     get_locked_answer_plan,
+)
+
+
+PRIVACY_SAFE_IDENTITY_RESPONSE = (
+    "For privacy reasons, this system does not store or reveal personal information from uploaded documents, "
+    "including real names, addresses, phone numbers, email addresses, account numbers, government IDs, or other "
+    "identifying details. I can describe the parties by their document roles, such as [LANDLORD], [TENANT], "
+    "[CANDIDATE], or [OFFEROR], and summarize their obligations using the redacted document text."
 )
 
 
@@ -50,6 +61,25 @@ class QuestionAnsweringService:
         started = time.perf_counter()
         locked_plan = get_locked_answer_plan()
         session = await self.supabase_repository.get_owned_session(session_id, user_id)
+        if is_identity_seeking_query(question):
+            log_query_blocked(session_id, "identity_seeking_query")
+            latency_ms = round((time.perf_counter() - started) * 1000)
+            prior_messages = await self.supabase_repository.list_messages(session_id)
+            first_user_message = not any(message["role"] == "user" for message in prior_messages)
+            await self._persist_exchange(
+                session_id=session_id,
+                question=question,
+                answer=PRIVACY_SAFE_IDENTITY_RESPONSE,
+                sources=[],
+                latency_ms=latency_ms,
+                title=question.strip()[:60] if first_user_message else None,
+            )
+            return AnswerResult(
+                answer=PRIVACY_SAFE_IDENTITY_RESPONSE,
+                sources=[],
+                latency_ms=latency_ms,
+            )
+
         document = await self.supabase_repository.get_owned_document(session["document_id"], user_id)
         prior_messages = await self.supabase_repository.list_messages(session_id)
 
@@ -62,6 +92,7 @@ class QuestionAnsweringService:
         if not retrieved_chunks:
             raise LookupError("No indexed chunks found for this document.")
 
+        retrieved_chunks = self._validate_retrieved_chunks(session_id, retrieved_chunks)
         answer = await self.openai_client.generate_answer(
             build_chat_messages(
                 locked_plan=locked_plan,
@@ -107,6 +138,22 @@ class QuestionAnsweringService:
             RetrievedChunk(text=document, metadata=metadata, distance=distance)
             for document, metadata, distance in zip(documents, metadatas, distances)
         ]
+
+    def _validate_retrieved_chunks(self, session_id: str, chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
+        clean_chunks: list[RetrievedChunk] = []
+        leaked_entity_types: set[str] = set()
+        for chunk in chunks:
+            detected = scan_all_pii(chunk.text, threshold=0.35)
+            if detected:
+                leaked_entity_types.update(entity["entity_type"] for entity in detected)
+                clean_text, _ = validate_no_pii_remains(chunk.text)
+            else:
+                clean_text = chunk.text
+            clean_chunks.append(RetrievedChunk(text=clean_text, metadata=chunk.metadata, distance=chunk.distance))
+
+        if leaked_entity_types:
+            log_chunk_pii_detected_at_query_time(session_id, sorted(leaked_entity_types))
+        return clean_chunks
 
     async def _persist_exchange(
         self,

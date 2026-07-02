@@ -8,3 +8,4 @@ posthog==3.25.0
 PyMuPDF==1.25.1
 pydantic==2.13.4
 supabase==2.13.0
+presidio-analyzer==2.2.355

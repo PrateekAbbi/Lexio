@@ -5,6 +5,9 @@ CREATE TABLE documents (
   page_count INT,
   chunk_count INT,
   chroma_collection_id TEXT NOT NULL,
+  doc_type TEXT,
+  roles_detected TEXT[] DEFAULT '{}',
+  total_redactions INT DEFAULT 0,
   uploaded_at TIMESTAMPTZ DEFAULT now()
 );
 
